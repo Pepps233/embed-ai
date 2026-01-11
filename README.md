@@ -1,4 +1,4 @@
-# Hybrid Local-Cloud Knowledge Companion
+# Embed AI Browser Tool
 
 A browser-based knowledge companion for reading, annotation, and question answering with hybrid local-cloud architecture.
 
