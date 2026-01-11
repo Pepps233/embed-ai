@@ -1,4 +1,4 @@
-# Core API
+# APIs
 fastapi>=0.109.0
 uvicorn[standard]>=0.27.0
 pydantic>=2.10.0
@@ -6,19 +6,22 @@ pydantic-settings>=2.1.0
 python-multipart>=0.0.6
 
 # Database & Storage
-supabase==2.3.4
-pinecone-client==5.0.1
+supabase>=2.27.0
+pinecone-client>=5.0.0
+websockets>=11,<16
 
-# PDF Processing (install separately if needed)
+# TODO: install below packages during future implementations
+
+# PDF Processing
 # PyMuPDF==1.23.8
 # pdfplumber==0.10.3
 
-# Embeddings & ML (install separately when implementing Phase 4)
+# Embeddings & ML
 # sentence-transformers==2.2.2
 # InstructorEmbedding==1.0.1
 # torch==2.1.2
 
-# LLM (install separately when implementing Phase 5)
+# LLM
 # transformers==4.36.2
 # accelerate==0.25.0
 
