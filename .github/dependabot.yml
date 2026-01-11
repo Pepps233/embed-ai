@@ -1,0 +1,104 @@
+# Dependabot configuration for Knowledge Companion
+# Automated dependency updates for npm (extension) and pip (backend)
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Browser Extension - npm dependencies
+  - package-ecosystem: "npm"
+    directory: "/extension"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "extension"
+    commit-message:
+      prefix: "chore(extension)"
+      include: "scope"
+    groups:
+      # Group React and related packages
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react*"
+      # Group Vite and build tools
+      build-tools:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+          - "typescript"
+          - "postcss"
+          - "autoprefixer"
+          - "tailwindcss"
+      # Group database packages
+      database:
+        patterns:
+          - "dexie*"
+          - "@supabase/*"
+    ignore:
+      # Ignore major version updates for stable packages
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+
+  # Backend - Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "backend"
+    commit-message:
+      prefix: "chore(backend)"
+      include: "scope"
+    groups:
+      # Group FastAPI and related packages
+      fastapi:
+        patterns:
+          - "fastapi"
+          - "uvicorn*"
+          - "pydantic*"
+      # Group database and storage packages
+      database:
+        patterns:
+          - "supabase*"
+          - "pinecone-client"
+          - "websockets"
+      # Group utilities
+      utilities:
+        patterns:
+          - "python-dotenv"
+          - "httpx"
+    ignore:
+      # Ignore commented out packages (future implementations)
+      - dependency-name: "PyMuPDF"
+      - dependency-name: "pdfplumber"
+      - dependency-name: "sentence-transformers"
+      - dependency-name: "InstructorEmbedding"
+      - dependency-name: "torch"
+      - dependency-name: "transformers"
+      - dependency-name: "accelerate"
+
+  # GitHub Actions - Keep workflows up to date
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "chore(ci)"
+      include: "scope"
