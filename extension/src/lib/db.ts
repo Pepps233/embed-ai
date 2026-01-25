@@ -74,7 +74,7 @@ export class KnowledgeCompanionDB extends Dexie {
       notes: 'id, document_id, highlight_id, created_at, updated_at',
       
       // Sync state (sync tracking)
-      syncState: '[entity_type+entity_id], is_dirty, last_synced_at'
+      syncState: '[entity_type+entity_id], entity_id, is_dirty, last_synced_at'
     });
   }
 }
