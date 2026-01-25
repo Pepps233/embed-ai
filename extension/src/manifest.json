@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Knowledge Companion",
+  "name": "Embed AI",
   "version": "0.1.0",
   "description": "A hybrid local-cloud knowledge companion for reading, annotation, and question answering",
   "permissions": [
@@ -41,7 +41,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["src/content/highlight-overlay.css"],
+      "resources": ["src/content/content-script.css"],
       "matches": ["<all_urls>"]
     }
   ]

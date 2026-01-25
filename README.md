@@ -44,6 +44,6 @@ uvicorn app.main:app --reload
 
 ### Keyboard Shortcuts
 Highlight Creation:
-- `Ctrl + Shift + H` (Windows/Linux) or `Cmd + Shift + H` (Mac)
+- `Ctrl + Shift + L` (Windows/Linux) or `Cmd + Shift + L` (Mac)
 Side Panel:
 - `Ctrl + Shift + K` (Windows/Linux) or `Cmd + Shift + K` (Mac)
