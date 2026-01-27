@@ -113,6 +113,12 @@ function setupEventListeners() {
  * Handle text selection for highlighting
  */
 function handleTextSelection(event: MouseEvent) {
+  // Don't show popup if clicking on the popup itself or note input
+  const target = event.target as Element;
+  if (target.closest('#kc-action-popup') || target.closest('#kc-note-input')) {
+    return;
+  }
+  
   const selection = window.getSelection();
   if (!selection || selection.isCollapsed) return;
   
@@ -124,8 +130,8 @@ function handleTextSelection(event: MouseEvent) {
     return; // Don't show UI for selections within existing highlights
   }
   
-  // Show highlight button near selection
-  showHighlightButton(event.clientX, event.clientY);
+  // Show highlight button at the end of the selection
+  showHighlightButton(selection);
 }
 
 /**
@@ -154,17 +160,30 @@ function isSelectionWithinHighlight(selection: Selection): boolean {
 /**
  * Show highlight/note popup menu near selection
  */
-function showHighlightButton(x: number, y: number) {
+function showHighlightButton(selection: Selection) {
   // Remove existing popup
   const existing = document.getElementById('kc-action-popup');
-  if (existing) existing.remove();
+  if (existing) {
+    existing.remove();
+  }
+  
+  // Store the range before any operations
+  const range = selection.getRangeAt(0).cloneRange();
+  const rect = range.getBoundingClientRect();
+  
+  // Position popup above the end of the selection (above the last word)
+  const x = rect.right;
+  const y = rect.top;
+  
+  // Popup height estimate (2 buttons * ~40px each)
+  const popupHeight = 80;
   
   const popup = document.createElement('div');
   popup.id = 'kc-action-popup';
   popup.style.cssText = `
     position: fixed;
     left: ${x}px;
-    top: ${y - 90}px;
+    top: ${Math.max(5, y - popupHeight - 5)}px;
     z-index: 999999;
     background: white;
     border: 1px solid #e5e7eb;
@@ -191,12 +210,34 @@ function showHighlightButton(x: number, y: number) {
     text-align: left;
     transition: background 0.15s;
   `;
-  highlightBtn.onmouseover = () => highlightBtn.style.background = '#f3f4f6';
+
+  highlightBtn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  highlightBtn.onmouseover = () => {
+    highlightBtn.style.background = '#f3f4f6';
+  };
   highlightBtn.onmouseout = () => highlightBtn.style.background = 'white';
-  highlightBtn.addEventListener('click', async () => {
-    if (!currentDocumentId) return;
-    await createHighlightFromSelection(currentDocumentId, '#FFFF0080'); // Light yellow with opacity
-    popup.remove();
+
+  highlightBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    
+    if (!currentDocumentId) {
+      return;
+    }
+    
+    
+    // Re-select the range to ensure selection is available
+    const sel = window.getSelection();
+    
+    if (sel && sel.rangeCount === 0) {
+      sel.addRange(range.cloneRange());
+    }
+    
+    await createHighlightFromSelection(currentDocumentId, '#FFFF0080');
+    removePopup();
   });
   
   // Note button
@@ -215,25 +256,205 @@ function showHighlightButton(x: number, y: number) {
     text-align: left;
     transition: background 0.15s;
   `;
-  noteBtn.onmouseover = () => noteBtn.style.background = '#f3f4f6';
+
+  noteBtn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  noteBtn.onmouseover = () => {
+    noteBtn.style.background = '#f3f4f6';
+  };
   noteBtn.onmouseout = () => noteBtn.style.background = 'white';
-  noteBtn.addEventListener('click', async () => {
-    if (!currentDocumentId) return;
-    await createHighlightFromSelection(currentDocumentId, '#E9D5FF80'); // Light purple with opacity
-    popup.remove();
-    // Open side panel to notes tab
-    chrome.runtime.sendMessage({ type: 'OPEN_SIDE_PANEL' });
+
+  noteBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    
+    if (!currentDocumentId) {
+      return;
+    }
+    
+    
+    // Re-select the range to ensure selection is available
+    const sel = window.getSelection();
+    
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(range.cloneRange());
+    }
+    
+    // Create highlight first
+    const highlightId = await createHighlightFromSelection(currentDocumentId, '#E9D5FF80');
+    
+    // Show note input UI
+    showNoteInput(highlightId, x, y, popupHeight);
+    removePopup();
   });
   
   popup.appendChild(highlightBtn);
   popup.appendChild(noteBtn);
   document.body.appendChild(popup);
   
-  // Remove popup after 5 seconds or on click outside
-  setTimeout(() => popup.remove(), 5000);
-  document.addEventListener('click', (e) => {
-    if (!popup.contains(e.target as Node)) popup.remove();
-  }, { once: true });
+  // Setup click handler to close popup
+  const clickHandler = (e: MouseEvent) => {
+    const target = e.target as Node;
+    // Close if clicking outside popup or on highlighted text
+    if (!popup.contains(target) || (target as Element).classList?.contains('kc-highlight')) {
+      removePopup();
+    }
+  };
+  
+  // Add click handler after a short delay
+  setTimeout(() => {
+    document.addEventListener('click', clickHandler);
+  }, 100);
+  
+  // Auto-remove after 5 seconds
+  const timeoutId = setTimeout(() => removePopup(), 5000);
+  
+  // Helper to remove popup and cleanup
+  function removePopup() {
+    if (popup.parentNode) {
+      popup.remove();
+      document.removeEventListener('click', clickHandler);
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+/**
+ * Show note input UI
+ */
+function showNoteInput(highlightId: string | null, x: number, y: number, offsetHeight: number) {
+  // Remove any existing note input
+  const existing = document.getElementById('kc-note-input');
+  if (existing) existing.remove();
+  
+  const notePopup = document.createElement('div');
+  notePopup.id = 'kc-note-input';
+  notePopup.style.cssText = `
+    position: fixed;
+    left: ${x}px;
+    top: ${Math.max(5, y - offsetHeight - 5)}px;
+    z-index: 999999;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    padding: 12px;
+    font-family: 'Source Sans 3', sans-serif;
+    width: 280px;
+  `;
+  
+  // Textarea
+  const textarea = document.createElement('textarea');
+  textarea.placeholder = 'Write a note...';
+  textarea.style.cssText = `
+    width: 100%;
+    min-height: 80px;
+    padding: 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: 'Source Sans 3', sans-serif;
+    resize: vertical;
+    outline: none;
+    margin-bottom: 8px;
+  `;
+  textarea.addEventListener('focus', () => {
+    textarea.style.borderColor = '#3b82f6';
+  });
+  textarea.addEventListener('blur', () => {
+    textarea.style.borderColor = '#e5e7eb';
+  });
+  
+  // Button container
+  const btnContainer = document.createElement('div');
+  btnContainer.style.cssText = 'display: flex; gap: 8px; justify-content: flex-end;';
+  
+  // Confirm button
+  const confirmBtn = document.createElement('button');
+  confirmBtn.textContent = 'Confirm';
+  confirmBtn.style.cssText = `
+    padding: 6px 12px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+  `;
+  confirmBtn.onmouseover = () => confirmBtn.style.background = '#2563eb';
+  confirmBtn.onmouseout = () => confirmBtn.style.background = '#3b82f6';
+  confirmBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const content = textarea.value.trim();
+    if (!content || !currentDocumentId) {
+      notePopup.remove();
+      return;
+    }
+    
+    // Create note using the notes-manager
+    const { createNote } = await import('../services/notes-manager');
+    await createNote({
+      documentId: currentDocumentId,
+      highlightId: highlightId || undefined,
+      content,
+    });
+    
+    // Notify side panel to refresh
+    chrome.runtime.sendMessage({ 
+      type: 'NOTE_CREATED',
+      documentId: currentDocumentId 
+    });
+    
+    notePopup.remove();
+  });
+  
+  // Cancel button
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.style.cssText = `
+    padding: 6px 12px;
+    background: #f3f4f6;
+    color: #374151;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+  `;
+  cancelBtn.onmouseover = () => cancelBtn.style.background = '#e5e7eb';
+  cancelBtn.onmouseout = () => cancelBtn.style.background = '#f3f4f6';
+  cancelBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    notePopup.remove();
+  });
+  
+  btnContainer.appendChild(cancelBtn);
+  btnContainer.appendChild(confirmBtn);
+  
+  notePopup.appendChild(textarea);
+  notePopup.appendChild(btnContainer);
+  document.body.appendChild(notePopup);
+  
+  // Focus textarea
+  textarea.focus();
+  
+  // Setup click handler to close on outside click
+  const clickHandler = (e: MouseEvent) => {
+    if (!notePopup.contains(e.target as Node)) {
+      notePopup.remove();
+      document.removeEventListener('click', clickHandler);
+    }
+  };
+  
+  setTimeout(() => {
+    document.addEventListener('click', clickHandler);
+  }, 100);
 }
 
 /**

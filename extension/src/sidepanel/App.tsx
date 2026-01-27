@@ -4,9 +4,9 @@
 
 import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Highlighter, MessageSquare, Plus, Trash2, Tag, Clock } from 'lucide-react';
+import { Highlighter, MessageSquare, Trash2, Tag, Clock } from 'lucide-react';
 import { highlightHelpers, noteHelpers } from '../lib/db-helpers';
-import { createNote, deleteNote } from '../services/notes-manager';
+import { deleteNote } from '../services/notes-manager';
 import type { Highlight, Note } from '@shared/types';
 
 type Tab = 'highlights' | 'notes';
@@ -15,8 +15,6 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab>('highlights');
   const [currentDocumentId, setCurrentDocumentId] = useState<string | null>(null);
   const [selectedHighlightId, setSelectedHighlightId] = useState<string | null>(null);
-  const [noteContent, setNoteContent] = useState('');
-  const [showNoteInput, setShowNoteInput] = useState(false);
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
 
   /**
@@ -62,13 +60,16 @@ function App() {
       }
     });
 
-    // Begin to listen for highlight creation events
+    // Begin to listen for highlight creation and note creation events
     const messageListener = (message: any) => {
       if (message.type === 'HIGHLIGHT_CREATED') {
         setCurrentDocumentId(message.documentId);
       } else if (message.type === 'HIGHLIGHT_CLICKED') {
         setSelectedHighlightId(message.highlightId);
         setActiveTab('highlights');
+      } else if (message.type === 'NOTE_CREATED') {
+        setCurrentDocumentId(message.documentId);
+        setActiveTab('notes');
       }
     };
 
@@ -89,19 +90,6 @@ function App() {
         });
       }
     });
-  };
-
-  const handleCreateNote = async (highlightId?: string) => {
-    if (!currentDocumentId || !noteContent.trim()) return;
-
-    await createNote({
-      documentId: currentDocumentId,
-      highlightId,
-      content: noteContent.trim(),
-    });
-
-    setNoteContent('');
-    setShowNoteInput(false);
   };
 
   const handleDeleteNote = async (noteId: string) => {
@@ -129,15 +117,6 @@ function App() {
       <header className="bg-[#252526] border-b border-[#3e3e42] px-4 py-3">
         <div className="flex items-center justify-between">
           <h1 className="text-sm font-semibold text-gray-300">Embed</h1>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowNoteInput(!showNoteInput)}
-              className="p-1.5 hover:bg-[#2a2d2e] rounded transition"
-              title="New Note"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          </div>
         </div>
       </header>
 
@@ -167,36 +146,6 @@ function App() {
         </button>
       </nav>
 
-      {/* New Note Input */}
-      {showNoteInput && (
-        <div className="bg-[#252526] border-b border-[#3e3e42] p-3">
-          <textarea
-            value={noteContent}
-            onChange={(e) => setNoteContent(e.target.value)}
-            placeholder="Write a note..."
-            className="w-full bg-[#3c3c3c] text-gray-200 border border-[#3e3e42] rounded px-3 py-2 text-sm resize-none focus:outline-none focus:border-blue-500"
-            rows={3}
-            autoFocus
-          />
-          <div className="flex gap-2 mt-2">
-            <button
-              onClick={() => handleCreateNote(selectedHighlightId || undefined)}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition"
-            >
-              Save
-            </button>
-            <button
-              onClick={() => {
-                setShowNoteInput(false);
-                setNoteContent('');
-              }}
-              className="px-3 py-1.5 bg-[#3c3c3c] hover:bg-[#4e4e4e] text-gray-300 text-sm rounded transition"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Content */}
       <main className="flex-1 overflow-y-auto">
@@ -210,7 +159,7 @@ function App() {
                   Select text on the page to create highlights
                 </p>
                 <p className="text-xs mt-2 text-gray-600">
-                  Shortcut: <kbd className="px-1.5 py-0.5 bg-[#3c3c3c] rounded text-xs">⌘⇧H</kbd>
+                  Shortcut: <kbd className="px-1.5 py-0.5 bg-[#3c3c3c] rounded text-xs">⌘⇧L</kbd>
                 </p>
               </div>
             ) : (
@@ -262,7 +211,7 @@ function App() {
                 <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-600" />
                 <p className="text-sm">No notes yet</p>
                 <p className="text-xs mt-1 text-gray-600">
-                  Click the + button to create a note
+                  Highlight text and click "Create Note" to add notes
                 </p>
               </div>
             ) : (

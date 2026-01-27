@@ -29,35 +29,59 @@ export async function createHighlightFromSelection(
   documentId: string,
   color: string = '#FFFF0080'
 ): Promise<string | null> {
+  console.log('[DEBUG] createHighlightFromSelection called, documentId:', documentId, 'color:', color);
+  
   const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return null;
+  console.log('[DEBUG] Selection:', selection, 'rangeCount:', selection?.rangeCount);
+  
+  if (!selection || selection.rangeCount === 0) {
+    console.log('[DEBUG] No selection or no ranges, returning null');
+    return null;
+  }
 
   const range = selection.getRangeAt(0);
-  if (range.collapsed) return null;
+  console.log('[DEBUG] Range:', range, 'collapsed:', range.collapsed);
+  
+  if (range.collapsed) {
+    console.log('[DEBUG] Range is collapsed, returning null');
+    return null;
+  }
 
   // Serialize the range
+  console.log('[DEBUG] Serializing range...');
   const anchor = serializeRange(range);
-  if (!anchor) return null;
+  console.log('[DEBUG] Anchor:', anchor);
+  
+  if (!anchor) {
+    console.log('[DEBUG] Failed to serialize range, returning null');
+    return null;
+  }
 
   // Create highlight in database
+  console.log('[DEBUG] Creating highlight in database...');
   const highlightId = await highlightHelpers.create({
     document_id: documentId,
     anchor,
     quote_text: anchor.quoteText,
     color,
   });
+  console.log('[DEBUG] Highlight created in DB, ID:', highlightId);
 
   // Render highlight in DOM
+  console.log('[DEBUG] Rendering highlight in DOM...');
   renderHighlight(highlightId, range, color);
+  console.log('[DEBUG] Highlight rendered');
 
   // Clear selection
   selection.removeAllRanges();
+  console.log('[DEBUG] Selection cleared');
 
   // Notify side panel
   chrome.runtime.sendMessage({
     type: 'HIGHLIGHT_CREATED',
     documentId: documentId,
   });
+  console.log('[DEBUG] Side panel notified');
 
   return highlightId;
 }
@@ -372,7 +396,7 @@ function showRemovePopup(highlightId: string): void {
   
   // Remove Highlight button
   const removeBtn = document.createElement('button');
-  removeBtn.textContent = 'Remove Highlight';
+  removeBtn.textContent = 'Remove';
   removeBtn.style.cssText = `
     display: block;
     width: 140px;
