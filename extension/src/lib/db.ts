@@ -14,6 +14,7 @@ export interface PageText {
 
 // Sync state tracking
 export interface SyncState {
+  id: string;
   entity_type: 'document' | 'highlight' | 'note';
   entity_id: string;
   is_dirty: boolean;
@@ -51,7 +52,7 @@ export class KnowledgeCompanionDB extends Dexie {
      * at runtime, notes: '...' attaches a table instance to KnowledgeCompanionDB class at
      * this.notes, which is at notes!: Table<...>
      */
-    this.version(1).stores({
+    this.version(2).stores({
       /**
        * Local document metadata
        * Indexed by page and document -> enables lazy loading & page-by-page processing
@@ -74,7 +75,7 @@ export class KnowledgeCompanionDB extends Dexie {
       notes: 'id, document_id, highlight_id, created_at, updated_at',
       
       // Sync state (sync tracking)
-      syncState: '[entity_type+entity_id], entity_id, is_dirty, last_synced_at'
+      syncState: 'id, [entity_type+entity_id], is_dirty, last_synced_at'
     });
   }
 }

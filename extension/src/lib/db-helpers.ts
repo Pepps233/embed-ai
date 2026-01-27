@@ -226,12 +226,13 @@ async function markDirty(
     .first();
   
   if (existing) {
-    await db.syncState.update(key, {
+    await db.syncState.update(existing.id, {
       is_dirty: true,
       sync_error: undefined,
     });
   } else {
     await db.syncState.add({
+      id: key,
       entity_type: entityType,
       entity_id: entityId,
       is_dirty: true,
