@@ -59,7 +59,9 @@ export const documentHelpers = {
     await db.documents.delete(id);
     
     // Clean up sync state
-    await db.syncState.where('entity_id').equals(id).delete();
+    // await db.syncState.where('entity_id').equals(id).delete();
+    await db.syncState.delete(`document_${id}`);
+    console.log("DEBUG: Deleted document sync state", `document_${id}`);
   },
 };
 
@@ -149,7 +151,9 @@ export const highlightHelpers = {
     await db.highlights.delete(id);
     
     // Clean up sync state
-    await db.syncState.where('entity_id').equals(id).delete();
+    // await db.syncState.where('entity_id').equals(id).delete();
+    await db.syncState.delete(`highlight_${id}`);
+    console.log("DEBUG: Deleted highlight sync state", `highlight_${id}`);
   },
 };
 
@@ -206,7 +210,10 @@ export const noteHelpers = {
 
   async delete(id: string): Promise<void> {
     await db.notes.delete(id);
-    await db.syncState.where('entity_id').equals(id).delete();
+    // await db.syncState.where('entity_id').equals(id).delete();
+    
+    await db.syncState.delete(`note_${id}`);
+    console.log("DEBUG: Deleted note sync state", `note_${id}`);
   },
 };
 
