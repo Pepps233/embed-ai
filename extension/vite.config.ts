@@ -11,7 +11,7 @@ export default defineConfig({
     react(),
     webExtension({
       manifest: './src/manifest.json',
-      disableAutoLaunch: false,
+      disableAutoLaunch: true, // Disable auto-launcher due to UTF-8 false error
     }),
   ],
   resolve: {
@@ -24,10 +24,11 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: {
-        popup: path.resolve(__dirname, 'src/popup/index.html'),
-        sidepanel: path.resolve(__dirname, 'src/sidepanel/index.html'),
+      output: {
+        manualChunks: undefined, // Prevent code splitting for content scripts
       },
     },
+    minify: false, // Disable minification to avoid long lines
+    target: 'esnext',
   },
 });

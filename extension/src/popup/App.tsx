@@ -6,7 +6,7 @@ function App() {
     <div className="w-80 p-4 bg-white">
       <div className="flex items-center gap-2 mb-4">
         <BookOpen className="w-6 h-6 text-blue-600" />
-        <h1 className="text-xl font-bold text-gray-800">Knowledge Companion</h1>
+        <h1 className="text-xl font-bold text-gray-800">Embed AI</h1>
       </div>
       
       <div className="space-y-3">
