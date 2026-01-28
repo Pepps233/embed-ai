@@ -27,4 +27,4 @@ websockets>=11,<16
 
 # Utilities
 python-dotenv==1.0.0
-httpx>=0.24,<0.26
+httpx>=0.26,<0.29

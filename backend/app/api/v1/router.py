@@ -1,5 +1,6 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import embeddings, documents, query
+
+from app.api.v1.endpoints import documents, embeddings, query
 
 api_router = APIRouter()
 
