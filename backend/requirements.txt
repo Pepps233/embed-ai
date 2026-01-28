@@ -8,7 +8,7 @@ python-multipart>=0.0.6
 # Database & Storage
 supabase>=2.27.0
 pinecone-client>=5.0.0
-websockets>=11,<16
+websockets>=11,<17
 
 # TODO: install below packages during future implementations
 
