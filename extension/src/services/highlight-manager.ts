@@ -1,10 +1,11 @@
 /**
  * Highlight Manager - Range API Implementation
  * Phase 1.4 - Create, render, and persist highlights
+ * Uses message passing to background script for all DB operations
  */
 
-import { highlightHelpers } from '../lib/db-helpers';
-import type { Highlight, HighlightAnchor } from '@shared/types';
+import type { HighlightAnchor } from '@shared/types';
+import { NoteType, CreatedFrom } from '@shared/types';
 
 export interface SerializedRange {
   startContainer: string; // XPath
@@ -57,13 +58,20 @@ export async function createHighlightFromSelection(
     return null;
   }
 
-  // Create highlight in database
-  console.log('[DEBUG] Creating highlight in database...');
-  const highlightId = await highlightHelpers.create({
-    document_id: documentId,
-    anchor,
-    quote_text: anchor.quoteText,
-    color,
+  // Create highlight in database via background script
+  console.log('[DEBUG] Creating highlight in database via background...');
+  const highlightId = await new Promise<string>((resolve) => {
+    chrome.runtime.sendMessage({
+      type: 'PERSIST_HIGHLIGHT',
+      payload: {
+        document_id: documentId,
+        anchor,
+        quote_text: anchor.quoteText,
+        color,
+      }
+    }, (response) => {
+      resolve(response.id);
+    });
   });
   console.log('[DEBUG] Highlight created in DB, ID:', highlightId);
 
@@ -107,7 +115,6 @@ function serializeRange(range: Range): ExtendedAnchor | null {
     };
 
     // Convert to shared HighlightAnchor format
-    const bodyText = document.body.textContent || '';
     const startOffset = getTextOffset(range.startContainer, range.startOffset);
     const endOffset = getTextOffset(range.endContainer, range.endOffset);
 
@@ -180,28 +187,6 @@ export function deserializeRange(anchor: HighlightAnchor): Range | null {
   }
 }
 
-/**
- * Find range by text content (fuzzy matching fallback)
- */
-function findRangeByText(anchor: HighlightAnchor, quoteText: string): Range | null {
-  const { start_context, end_context } = anchor;
-  const bodyText = document.body.textContent || '';
-
-  // Search for quote with context
-  const contextSearch = start_context + quoteText + end_context;
-  let index = bodyText.indexOf(contextSearch);
-
-  if (index === -1) {
-    // Try without context
-    index = bodyText.indexOf(quoteText);
-    if (index === -1) return null;
-  } else {
-    index += start_context.length;
-  }
-
-  // Find the text node and offset
-  return findRangeAtOffset(index, quoteText.length);
-}
 
 /**
  * Find Range at character offset in document
@@ -280,8 +265,15 @@ export async function restoreHighlights(documentId: string): Promise<void> {
   // Remove existing highlights
   removeAllHighlightElements();
 
-  // Get highlights from database
-  const highlights = await highlightHelpers.getHighlightsByDocument(documentId);
+  // Get highlights from database via background script
+  const highlights = await new Promise<any[]>((resolve) => {
+    chrome.runtime.sendMessage({
+      type: 'GET_HIGHLIGHTS_BY_DOCUMENT',
+      documentId
+    }, (response) => {
+      resolve(response.highlights || []);
+    });
+  });
 
   // Render each highlight
   for (const highlight of highlights) {
@@ -342,6 +334,150 @@ function handleHighlightClick(highlightId: string): void {
 }
 
 /**
+ * Show note input UI for a highlight
+ */
+function showNoteInputForHighlight(highlightId: string, documentId: string, rect: DOMRect): void {
+  // Remove any existing note input
+  const existing = document.getElementById('kc-note-input');
+  if (existing) existing.remove();
+  
+  const notePopup = document.createElement('div');
+  notePopup.id = 'kc-note-input';
+  notePopup.style.cssText = `
+    position: fixed;
+    left: ${rect.left}px;
+    top: ${rect.bottom + 5}px;
+    z-index: 999999;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    padding: 12px;
+    font-family: 'Source Sans 3', sans-serif;
+    width: 280px;
+  `;
+  
+  // Textarea
+  const textarea = document.createElement('textarea');
+  textarea.placeholder = 'Write a note...';
+  textarea.style.cssText = `
+    width: 100%;
+    min-height: 80px;
+    padding: 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: 'Source Sans 3', sans-serif;
+    resize: vertical;
+    outline: none;
+    margin-bottom: 8px;
+  `;
+  textarea.addEventListener('focus', () => {
+    textarea.style.borderColor = '#3b82f6';
+  });
+  textarea.addEventListener('blur', () => {
+    textarea.style.borderColor = '#e5e7eb';
+  });
+  
+  // Button container
+  const btnContainer = document.createElement('div');
+  btnContainer.style.cssText = 'display: flex; gap: 8px; justify-content: flex-end;';
+  
+  // Confirm button
+  const confirmBtn = document.createElement('button');
+  confirmBtn.textContent = 'Confirm';
+  confirmBtn.style.cssText = `
+    padding: 6px 12px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+  `;
+  confirmBtn.onmouseover = () => confirmBtn.style.background = '#2563eb';
+  confirmBtn.onmouseout = () => confirmBtn.style.background = '#3b82f6';
+  confirmBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const content = textarea.value.trim();
+    if (!content) {
+      notePopup.remove();
+      return;
+    }
+    
+    // Create note in DB via background script
+    await new Promise((resolve) => {
+      chrome.runtime.sendMessage({
+        type: 'PERSIST_NOTE',
+        payload: {
+          document_id: documentId,
+          highlight_id: highlightId,
+          content: content,
+          metadata: {
+            tags: [],
+            type: NoteType.SUMMARY, 
+            created_from: CreatedFrom.MANUAL
+          }
+        }
+      }, resolve);
+    });
+
+    // Notify side panel to refresh
+    chrome.runtime.sendMessage({ 
+      type: 'NOTE_CREATED',
+      documentId: documentId 
+    });
+    
+    notePopup.remove();
+  });
+  
+  // Cancel button
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.style.cssText = `
+    padding: 6px 12px;
+    background: #f3f4f6;
+    color: #374151;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+  `;
+  cancelBtn.onmouseover = () => cancelBtn.style.background = '#e5e7eb';
+  cancelBtn.onmouseout = () => cancelBtn.style.background = '#f3f4f6';
+  cancelBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    notePopup.remove();
+  });
+  
+  btnContainer.appendChild(cancelBtn);
+  btnContainer.appendChild(confirmBtn);
+  
+  notePopup.appendChild(textarea);
+  notePopup.appendChild(btnContainer);
+  document.body.appendChild(notePopup);
+  
+  // Focus textarea
+  textarea.focus();
+  
+  // Setup click handler to close on outside click
+  const clickHandler = (e: MouseEvent) => {
+    if (!notePopup.contains(e.target as Node)) {
+      notePopup.remove();
+      document.removeEventListener('click', clickHandler);
+    }
+  };
+  
+  setTimeout(() => {
+    document.addEventListener('click', clickHandler);
+  }, 100);
+}
+
+/**
  * Show remove popup for highlighted text
  */
 function showRemovePopup(highlightId: string): void {
@@ -349,13 +485,14 @@ function showRemovePopup(highlightId: string): void {
   const existing = document.getElementById('kc-remove-popup');
   if (existing) existing.remove();
   
-  const highlightElement = document.querySelector(`[${HIGHLIGHT_ATTR}="${highlightId}"]`);
+  const highlightElement = document.querySelector(`[data-highlight-id="${highlightId}"]`);
   if (!highlightElement) return;
   
   const rect = highlightElement.getBoundingClientRect();
   
   const popup = document.createElement('div');
   popup.id = 'kc-remove-popup';
+  // Position the popup
   popup.style.cssText = `
     position: fixed;
     left: ${rect.left}px;
@@ -369,9 +506,9 @@ function showRemovePopup(highlightId: string): void {
     font-family: 'Source Sans 3', sans-serif;
   `;
   
-  // Create Note button
+  // --- CREATE NOTE BUTTON ---
   const noteBtn = document.createElement('button');
-  noteBtn.textContent = 'Create Note';
+  noteBtn.textContent = 'Add Note';
   noteBtn.style.cssText = `
     display: block;
     width: 140px;
@@ -388,21 +525,40 @@ function showRemovePopup(highlightId: string): void {
   `;
   noteBtn.onmouseover = () => noteBtn.style.background = '#f3f4f6';
   noteBtn.onmouseout = () => noteBtn.style.background = 'white';
+  
   noteBtn.addEventListener('click', async () => {
+    // Get the highlight to find the document_id via background script
+    const highlights = await new Promise<any[]>((resolve) => {
+      chrome.runtime.sendMessage({
+        type: 'GET_HIGHLIGHTS_BY_DOCUMENT',
+        documentId: (window as any).__currentDocumentId || ''
+      }, (response) => {
+        resolve(response.highlights || []);
+      });
+    });
+    
+    const highlight = highlights.find(h => h.id === highlightId);
+    if (!highlight) {
+      console.error('Highlight not found');
+      return;
+    }
+
+    // Remove the popup and show note input UI
     popup.remove();
-    // Open side panel to notes tab
-    chrome.runtime.sendMessage({ type: 'OPEN_SIDE_PANEL' });
+    
+    // Show custom note input UI at the highlight position
+    showNoteInputForHighlight(highlightId, highlight.document_id, rect);
   });
   
-  // Remove Highlight button
+  // --- REMOVE HIGHLIGHT BUTTON ---
   const removeBtn = document.createElement('button');
-  removeBtn.textContent = 'Remove';
+  removeBtn.textContent = 'Remove Highlight';
   removeBtn.style.cssText = `
     display: block;
     width: 140px;
     padding: 10px 16px;
     background: white;
-    color: #374151;
+    color: #ef4444; /* Red color for delete action */
     border: none;
     font-size: 14px;
     font-weight: 500;
@@ -410,11 +566,28 @@ function showRemovePopup(highlightId: string): void {
     text-align: left;
     transition: background 0.15s;
   `;
-  removeBtn.onmouseover = () => removeBtn.style.background = '#f3f4f6';
+  removeBtn.onmouseover = () => removeBtn.style.background = '#fef2f2';
   removeBtn.onmouseout = () => removeBtn.style.background = 'white';
   removeBtn.addEventListener('click', async () => {
-    await highlightHelpers.delete(highlightId);
-    await removeHighlight(highlightId);
+    // Delete highlight via background script
+    await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ 
+        type: 'DELETE_HIGHLIGHT', 
+        highlightId 
+      }, resolve);
+    });
+    
+    // Remove from DOM
+    const elements = document.querySelectorAll(`[data-highlight-id="${highlightId}"]`);
+    elements.forEach((el) => {
+      const parent = el.parentNode;
+      if (parent) {
+        while (el.firstChild) parent.insertBefore(el.firstChild, el);
+        parent.removeChild(el);
+        parent.normalize();
+      }
+    });
+    
     popup.remove();
   });
   
@@ -422,13 +595,16 @@ function showRemovePopup(highlightId: string): void {
   popup.appendChild(removeBtn);
   document.body.appendChild(popup);
   
-  // Remove popup after 5 seconds or on click outside
+  // Close popup logic
   setTimeout(() => popup.remove(), 5000);
-  document.addEventListener('click', (e) => {
+  const closeHandler = (e: MouseEvent) => {
     if (!popup.contains(e.target as Node) && e.target !== highlightElement) {
       popup.remove();
+      document.removeEventListener('click', closeHandler);
     }
-  }, { once: true });
+  };
+  // Use timeout to prevent immediate closing from the click that opened it
+  setTimeout(() => document.addEventListener('click', closeHandler), 0);
 }
 
 /**

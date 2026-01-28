@@ -3,7 +3,6 @@
  * Injected into web pages to enable reading and annotation
  */
 
-import { documentHelpers, pageTextHelpers } from '../lib/db-helpers';
 import { extractPageText, extractPageMetadata } from '../services/text-extraction';
 import {
   createHighlightFromSelection,
@@ -29,6 +28,9 @@ async function initialize() {
     // Get or create document for current page
     currentDocumentId = await getOrCreateDocument();
     
+    // Store document ID globally for highlight manager to access
+    (window as any).__currentDocumentId = currentDocumentId;
+    
     // Restore existing highlights
     if (currentDocumentId) {
       await restoreHighlights(currentDocumentId);
@@ -45,43 +47,57 @@ async function initialize() {
 }
 
 /**
- * Get or create document for current page
+ * Get or create document for current page via background script
  */
 async function getOrCreateDocument(): Promise<string> {
   const url = window.location.href;
   
-  // Check if document already exists
-  let doc = await documentHelpers.getBySource(url);
-  
-  if (!doc) {
-    // Extract page metadata
-    const metadata = extractPageMetadata();
-    
-    // Create new document
-    const docId = await documentHelpers.create({
-      type: DocumentType.WEB_PAGE,
-      source: url,
-      title: metadata.title,
-      author: metadata.author,
-      status: ProcessingStatus.LOCAL,
-      metadata: {
-        description: metadata.description,
-        domain: metadata.domain,
-        publishedDate: metadata.publishedDate,
-      },
+  // Check if document already exists via background script
+  const existingDoc = await new Promise<any>((resolve) => {
+    chrome.runtime.sendMessage({
+      type: 'GET_DOCUMENT_BY_SOURCE',
+      source: url
+    }, (response) => {
+      resolve(response.document);
     });
-    
-    // Extract and store page text
-    await extractAndStorePageText(docId);
-    
-    return docId;
+  });
+  
+  if (existingDoc) {
+    return existingDoc.id;
   }
   
-  return doc.id;
+  // Extract page metadata
+  const metadata = extractPageMetadata();
+  
+  // Create new document via background script
+  const docId = await new Promise<string>((resolve) => {
+    chrome.runtime.sendMessage({
+      type: 'CREATE_DOCUMENT',
+      payload: {
+        type: DocumentType.WEB_PAGE,
+        source: url,
+        title: metadata.title,
+        author: metadata.author,
+        status: ProcessingStatus.LOCAL,
+        metadata: {
+          description: metadata.description,
+          domain: metadata.domain,
+          publishedDate: metadata.publishedDate,
+        },
+      }
+    }, (response) => {
+      resolve(response.documentId);
+    });
+  });
+  
+  // Extract and store page text
+  await extractAndStorePageText(docId);
+  
+  return docId;
 }
 
 /**
- * Extract and store page text in IndexedDB
+ * Extract and store page text in IndexedDB via background script
  */
 async function extractAndStorePageText(documentId: string): Promise<void> {
   const extractedText = extractPageText();
@@ -89,12 +105,17 @@ async function extractAndStorePageText(documentId: string): Promise<void> {
   // Store as single page (page 0 for web pages)
   const fullText = extractedText.map(t => t.text).join(' ');
   
-  await pageTextHelpers.create({
-    document_id: documentId,
-    page_number: 0,
-    text: fullText,
-    char_start: 0,
-    char_end: fullText.length,
+  await new Promise((resolve) => {
+    chrome.runtime.sendMessage({
+      type: 'CREATE_PAGE_TEXT',
+      payload: {
+        document_id: documentId,
+        page_number: 0,
+        text: fullText,
+        char_start: 0,
+        char_end: fullText.length,
+      }
+    }, resolve);
   });
 }
 
@@ -396,12 +417,21 @@ function showNoteInput(highlightId: string | null, x: number, y: number, offsetH
       return;
     }
     
-    // Create note using the notes-manager
-    const { createNote } = await import('../services/notes-manager');
-    await createNote({
-      documentId: currentDocumentId,
-      highlightId: highlightId || undefined,
-      content,
+    // Create note via background script
+    await new Promise((resolve) => {
+      chrome.runtime.sendMessage({
+        type: 'PERSIST_NOTE',
+        payload: {
+          document_id: currentDocumentId,
+          highlight_id: highlightId || undefined,
+          content,
+          metadata: {
+            tags: [],
+            type: 'summary',
+            created_from: 'manual'
+          }
+        }
+      }, resolve);
     });
     
     // Notify side panel to refresh
