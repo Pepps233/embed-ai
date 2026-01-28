@@ -510,7 +510,7 @@ function handleKeyboardShortcut(event: KeyboardEvent) {
 /**
  * Message handler
  */
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   (async () => {
     try {
       switch (message.type) {

@@ -1,7 +1,8 @@
 import '@testing-library/jest-dom';
+import { vi } from 'vitest';
 
 // Mock Chrome API
-global.chrome = {
+(globalThis as any).chrome = {
   runtime: {
     sendMessage: vi.fn(),
     onMessage: {

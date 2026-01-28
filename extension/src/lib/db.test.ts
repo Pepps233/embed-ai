@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { EmbedAIDB } from './db';
+import { DocumentType, ProcessingStatus, NoteType, CreatedFrom } from '@shared/types';
 import type { Document, Highlight, Note } from '@shared/types';
 
 describe('EmbedAIDB', () => {
@@ -31,10 +32,10 @@ describe('EmbedAIDB', () => {
     it('should add a document', async () => {
       const doc: Document = {
         id: 'doc-1',
-        type: 'webpage',
+        type: DocumentType.WEB_PAGE,
         source: 'https://example.com',
         title: 'Test Document',
-        status: 'ready',
+        status: ProcessingStatus.READY,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -50,10 +51,10 @@ describe('EmbedAIDB', () => {
     it('should retrieve document by source', async () => {
       const doc: Document = {
         id: 'doc-2',
-        type: 'webpage',
+        type: DocumentType.WEB_PAGE,
         source: 'https://test.com',
         title: 'Test',
-        status: 'ready',
+        status: ProcessingStatus.READY,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -71,9 +72,13 @@ describe('EmbedAIDB', () => {
       const highlight: Highlight = {
         id: 'hl-1',
         document_id: 'doc-1',
-        text: 'Highlighted text',
-        start_offset: 0,
-        end_offset: 16,
+        quote_text: 'Highlighted text',
+        anchor: {
+          start_offset: 0,
+          end_offset: 16,
+          start_context: '',
+          end_context: ''
+        },
         color: '#FFEB3B',
         created_at: new Date().toISOString(),
       };
@@ -82,7 +87,7 @@ describe('EmbedAIDB', () => {
       const retrieved = await db.highlights.get('hl-1');
       
       expect(retrieved).toBeDefined();
-      expect(retrieved?.text).toBe('Highlighted text');
+      expect(retrieved?.quote_text).toBe('Highlighted text');
       expect(retrieved?.color).toBe('#FFEB3B');
     });
 
@@ -91,18 +96,26 @@ describe('EmbedAIDB', () => {
         {
           id: 'hl-1',
           document_id: 'doc-1',
-          text: 'First highlight',
-          start_offset: 0,
-          end_offset: 15,
+          quote_text: 'First highlight',
+          anchor: {
+            start_offset: 0,
+            end_offset: 15,
+            start_context: '',
+            end_context: ''
+          },
           color: '#FFEB3B',
           created_at: new Date().toISOString(),
         },
         {
           id: 'hl-2',
           document_id: 'doc-1',
-          text: 'Second highlight',
-          start_offset: 20,
-          end_offset: 36,
+          quote_text: 'Second highlight',
+          anchor: {
+            start_offset: 20,
+            end_offset: 36,
+            start_context: '',
+            end_context: ''
+          },
           color: '#4CAF50',
           created_at: new Date().toISOString(),
         },
@@ -122,6 +135,11 @@ describe('EmbedAIDB', () => {
         document_id: 'doc-1',
         highlight_id: 'hl-1',
         content: 'This is a test note',
+        metadata: {
+          tags: [],
+          type: NoteType.INSIGHT,
+          created_from: CreatedFrom.MANUAL
+        },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -139,6 +157,11 @@ describe('EmbedAIDB', () => {
         document_id: 'doc-1',
         highlight_id: 'hl-1',
         content: 'Test note',
+        metadata: {
+          tags: [],
+          type: NoteType.INSIGHT,
+          created_from: CreatedFrom.MANUAL
+        },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };

@@ -1,7 +1,7 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-from datetime import datetime
 from enum import Enum
+
+from pydantic import BaseModel, Field
+
 
 class DocumentType(str, Enum):
     WEB_PAGE = "web_page"
@@ -29,22 +29,22 @@ class CreatedFrom(str, Enum):
 class TextChunk(BaseModel):
     id: str
     document_id: str
-    page_number: Optional[int] = None
+    page_number: int | None = None
     text: str
     char_start: int
     char_end: int
     token_count: int
-    vector_id: Optional[str] = None
+    vector_id: str | None = None
 
 class ChunkEmbeddingRequest(BaseModel):
     document_id: str
-    chunks: List[TextChunk]
+    chunks: list[TextChunk]
 
 class ChunkEmbeddingResponse(BaseModel):
     chunk_id: str
     vector_id: str
     success: bool
-    error: Optional[str] = None
+    error: str | None = None
 
 class DocumentUploadResponse(BaseModel):
     document_id: str
@@ -53,17 +53,17 @@ class DocumentUploadResponse(BaseModel):
 
 class QueryRequest(BaseModel):
     question: str
-    document_ids: Optional[List[str]] = None
+    document_ids: list[str] | None = None
     top_k: int = Field(default=5, ge=1, le=20)
 
 class Citation(BaseModel):
     document_id: str
-    page_number: Optional[int] = None
+    page_number: int | None = None
     chunk_id: str
     text: str
     relevance_score: float
 
 class QueryResponse(BaseModel):
     answer: str
-    citations: List[Citation]
+    citations: list[Citation]
     processing_time_ms: float

@@ -1,10 +1,11 @@
+
 from fastapi import APIRouter, HTTPException
-from typing import List
+
 from app.models.schemas import ChunkEmbeddingRequest, ChunkEmbeddingResponse
 
 router = APIRouter()
 
-@router.post("/embed", response_model=List[ChunkEmbeddingResponse])
+@router.post("/embed", response_model=list[ChunkEmbeddingResponse])
 async def embed_chunks(request: ChunkEmbeddingRequest):
     """
     Generate embeddings for text chunks.
