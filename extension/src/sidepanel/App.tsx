@@ -7,7 +7,6 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Highlighter, MessageSquare, Trash2, Tag, Clock } from 'lucide-react';
 import { highlightHelpers, noteHelpers } from '../lib/db-helpers';
 import { deleteNote } from '../services/notes-manager';
-import type { Highlight, Note } from '@shared/types';
 
 type Tab = 'highlights' | 'notes';
 
@@ -46,30 +45,42 @@ function App() {
      * 
      * Find all tabs that are active in the current window, then call arrow function with the result
      */
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]?.id) {
-        chrome.tabs.sendMessage(
-          tabs[0].id,
-          { type: 'GET_DOCUMENT_ID' },
-          (response) => {
-            if (response?.documentId) {
-              setCurrentDocumentId(response.documentId);
+    const fetchDocumentId = () => {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]?.id) {
+          chrome.tabs.sendMessage(
+            tabs[0].id,
+            { type: 'GET_DOCUMENT_ID' },
+            (response) => {
+              if (response?.documentId) {
+                setCurrentDocumentId(response.documentId);
+              }
             }
-          }
-        );
-      }
-    });
+          );
+        }
+      });
+    };
+
+    fetchDocumentId();
 
     // Begin to listen for highlight creation and note creation events
     const messageListener = (message: any) => {
       if (message.type === 'HIGHLIGHT_CREATED') {
-        setCurrentDocumentId(message.documentId);
+        if (message.documentId) {
+          setCurrentDocumentId(message.documentId);
+        } else {
+          fetchDocumentId();
+        }
       } else if (message.type === 'HIGHLIGHT_CLICKED') {
         setSelectedHighlightId(message.highlightId);
         setActiveTab('highlights');
       } else if (message.type === 'NOTE_CREATED') {
-        setCurrentDocumentId(message.documentId);
-        setActiveTab('notes');
+        if (message.documentId) {
+          setCurrentDocumentId(message.documentId);
+          setActiveTab('notes');
+        } else {
+          fetchDocumentId();
+        }
       }
     };
 
