@@ -22,7 +22,7 @@ export interface SyncState {
   sync_error?: string;
 }
 
-export class KnowledgeCompanionDB extends Dexie {
+export class EmbedAIDB extends Dexie {
   // Local database contract
 
   /**
@@ -44,12 +44,12 @@ export class KnowledgeCompanionDB extends Dexie {
   syncState!: Table<SyncState, string>;
 
   constructor() {
-    super('KnowledgeCompanionDB');
+    super('EmbedAIDB');
     
     /**
      * runtime IndexedDB table creation
      * 
-     * at runtime, notes: '...' attaches a table instance to KnowledgeCompanionDB class at
+     * at runtime, notes: '...' attaches a table instance to EmbedAIDB class at
      * this.notes, which is at notes!: Table<...>
      */
     this.version(2).stores({
@@ -80,4 +80,4 @@ export class KnowledgeCompanionDB extends Dexie {
   }
 }
 
-export const db = new KnowledgeCompanionDB();
+export const db = new EmbedAIDB();
