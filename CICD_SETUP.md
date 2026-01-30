@@ -289,6 +289,96 @@ This saves CI minutes and speeds up feedback.
 - Install dev dependencies: `pip install -r requirements-dev.txt`
 - Check Python version: `python --version` (should be 3.11+)
 
+## Running Tests Locally
+
+### Backend Unit Tests
+
+Navigate to the backend directory and activate your virtual environment:
+
+```bash
+cd backend
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+**Run all unit tests:**
+```bash
+PYTHONPATH=. pytest backend_tests/unit/ -v
+```
+
+**Run unit tests with coverage:**
+```bash
+PYTHONPATH=. pytest backend_tests/unit/ -v --cov=app --cov-report=term-missing
+```
+
+**Run unit tests with XML coverage report (for CI/CD):**
+```bash
+PYTHONPATH=. pytest backend_tests/unit/ -v --cov=app --cov-report=term-missing --cov-report=xml
+```
+
+**Run specific test file:**
+```bash
+PYTHONPATH=. pytest backend_tests/unit/test_api_health.py -v
+```
+
+**Run specific test function:**
+```bash
+PYTHONPATH=. pytest backend_tests/unit/test_api_health.py::test_cors_headers -v
+```
+
+### Backend Integration Tests
+
+Integration tests require environment variables. Create a `.env` file in the `backend` directory with:
+
+```env
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+PINECONE_API_KEY=your_pinecone_api_key
+PINECONE_INDEX_NAME=your_index_name
+```
+
+**Run integration tests:**
+```bash
+PYTHONPATH=. pytest backend_tests/integration/ -v
+```
+
+**Run all backend tests (unit + integration):**
+```bash
+PYTHONPATH=. pytest backend_tests/ -v
+```
+
+### Extension Tests
+
+Navigate to the extension directory:
+
+```bash
+cd extension
+```
+
+**Run all tests:**
+```bash
+npm test
+```
+
+**Run tests in watch mode:**
+```bash
+npm run test:watch
+```
+
+**Run tests with UI:**
+```bash
+npm run test:ui
+```
+
+**Run tests with coverage:**
+```bash
+npm test -- --coverage
+```
+
+**Run specific test file:**
+```bash
+npm test -- src/lib/db.test.ts
+```
+
 ## Summary
 
 This project currently includes:
