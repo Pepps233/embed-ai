@@ -7,6 +7,10 @@ from app.main import app
 @pytest.fixture
 def client():
     """FastAPI test client fixture."""
+
+    # app: FastAPI app
+    # TestClient(app): test HTTP client
+    # automatically injected into each test --> see backend/backend_tests/unit/test_api_health.py
     return TestClient(app)
 
 
