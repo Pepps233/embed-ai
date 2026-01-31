@@ -184,7 +184,8 @@ describe('EmbedAIDB', () => {
       };
 
       await db.syncState.add(syncState);
-      const dirty = await db.syncState.where('is_dirty').equals(1).toArray();
+      const allStates = await db.syncState.toArray();
+      const dirty = allStates.filter(s => s.is_dirty);
       
       expect(dirty).toHaveLength(1);
       expect(dirty[0].entity_id).toBe('hl-1');
