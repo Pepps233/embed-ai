@@ -10,7 +10,7 @@ Embed AI is a browser extension that enables users to highlight, annotate, and i
 
 ```
 embed-ai/
-├── extension/          # Browser extension (Manifest V3 + Vite)
+├── extension/         # Browser extension (Manifest V3 + Vite)
 ├── backend/           # FastAPI backend service
 ├── shared/            # Shared schemas and types
 ├── docs/              # Architecture Decision Records
