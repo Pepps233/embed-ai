@@ -12,9 +12,9 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.38.4",
-    "dexie": "^3.2.4",
-    "dexie-react-hooks": "^1.1.7",
+    "@supabase/supabase-js": "^2.93.3",
+    "dexie": "^4.3.0",
+    "dexie-react-hooks": "^4.2.0",
     "lucide-react": "^0.562.0",
     "pdfjs-dist": "^5.4.530",
     "react": "^18.2.0",
