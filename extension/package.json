@@ -16,7 +16,7 @@
     "dexie": "^4.3.0",
     "dexie-react-hooks": "^4.2.0",
     "lucide-react": "^0.562.0",
-    "pdfjs-dist": "^5.4.530",
+    "pdfjs-dist": "^5.4.624",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
