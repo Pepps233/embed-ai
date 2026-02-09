@@ -10,21 +10,43 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab>('chat');
   const [currentDocumentId, setCurrentDocumentId] = useState<string | null>(null);
 
-  // Get current document ID from content script
+  // Get current document ID from content script or PDF viewer
   useEffect(() => {
     /**
-     * Chrome.tabs.query: "gets all tabs that have the specified properties, or all tabs
-     * if no properties are specified"
-     * 
-     * Find all tabs that are active in the current window, then call arrow function with the result
+     * Fetch document ID from the active tab.
+     * For web pages: sends message to content script
+     * For PDF viewer: gets from chrome.storage.session
      */
-    const fetchDocumentId = () => {
+    const fetchDocumentId = async () => {
+      // First check chrome.storage.session for PDF viewer document ID
+      try {
+        const result = await chrome.storage.session.get('currentPdfDocumentId');
+        if (result.currentPdfDocumentId) {
+          setCurrentDocumentId(result.currentPdfDocumentId as string);
+          return;
+        }
+      } catch {
+        // Session storage not available, continue
+      }
+
+      // Fall back to content script
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]?.id) {
+          // Check if this is our PDF viewer page
+          const url = tabs[0].url || '';
+          if (url.includes('pdf-viewer/index.html')) {
+            // For PDF viewer, document ID will come via message
+            return;
+          }
+
           chrome.tabs.sendMessage(
             tabs[0].id,
             { type: 'GET_DOCUMENT_ID' },
             (response) => {
+              if (chrome.runtime.lastError) {
+                // Content script not available (e.g., extension pages)
+                return;
+              }
               if (response?.documentId) {
                 setCurrentDocumentId(response.documentId);
               }
@@ -35,6 +57,14 @@ function App() {
     };
 
     fetchDocumentId();
+
+    // Listen for storage changes (PDF viewer updates)
+    const storageListener = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (changes.currentPdfDocumentId?.newValue) {
+        setCurrentDocumentId(changes.currentPdfDocumentId.newValue as string);
+      }
+    };
+    chrome.storage.session.onChanged.addListener(storageListener);
 
     const messageListener = (message: any) => {
       if (message.type === 'HIGHLIGHT_CREATED') {
@@ -53,11 +83,19 @@ function App() {
           fetchDocumentId();
         }
         setActiveTab('notes');
+      } else if (message.type === 'PDF_DOCUMENT_LOADED') {
+        // PDF viewer loaded a document
+        if (message.documentId) {
+          setCurrentDocumentId(message.documentId);
+        }
       }
     };
 
     chrome.runtime.onMessage.addListener(messageListener);
-    return () => chrome.runtime.onMessage.removeListener(messageListener);
+    return () => {
+      chrome.runtime.onMessage.removeListener(messageListener);
+      chrome.storage.session.onChanged.removeListener(storageListener);
+    };
   }, []);
 
   return (

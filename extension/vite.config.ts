@@ -12,6 +12,9 @@ export default defineConfig({
     webExtension({
       manifest: './src/manifest.json',
       disableAutoLaunch: true, // Disable auto-launcher due to UTF-8 false error
+      additionalInputs: [
+        'src/pdf-viewer/index.html',
+      ],
     }),
   ],
   resolve: {
