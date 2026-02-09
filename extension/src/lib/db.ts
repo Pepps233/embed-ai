@@ -58,23 +58,34 @@ export class EmbedAIDB extends Dexie {
        * Indexed by page and document -> enables lazy loading & page-by-page processing
        */
       documents: 'id, type, source, status, created_at',
-      
+
       // Page text (extracted from PDFs/web pages)
       pageText: 'id, document_id, page_number',
-      
+
       // Text chunks (for embedding)
       chunks: 'id, document_id, page_number, vector_id',
-      
+
       // Vector references (chunk to Pinecone vector mapping)
       vectorReferences: 'chunk_id, vector_id, embedding_status',
-      
+
       // Highlights (range-anchored)
       highlights: 'id, document_id, created_at',
-      
+
       // Notes (attached to highlights or documents)
       notes: 'id, document_id, highlight_id, created_at, updated_at',
-      
+
       // Sync state (sync tracking)
+      syncState: 'id, [entity_type+entity_id], is_dirty, last_synced_at'
+    });
+
+    // Version 3: Add compound index for pageText lookup
+    this.version(3).stores({
+      documents: 'id, type, source, status, created_at',
+      pageText: 'id, document_id, page_number, [document_id+page_number]',
+      chunks: 'id, document_id, page_number, vector_id',
+      vectorReferences: 'chunk_id, vector_id, embedding_status',
+      highlights: 'id, document_id, created_at',
+      notes: 'id, document_id, highlight_id, created_at, updated_at',
       syncState: 'id, [entity_type+entity_id], is_dirty, last_synced_at'
     });
   }

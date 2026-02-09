@@ -42,6 +42,9 @@ export interface HighlightAnchor {
   end_offset: number;
   start_context: string;
   end_context: string;
+  // PDF-specific fields
+  page_number?: number;
+  quote_text?: string;
 }
 
 export interface Highlight {
