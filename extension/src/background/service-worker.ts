@@ -147,6 +147,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.tab?.id) {
       const isOpen = sidePanelState.get(sender.tab.id);
       if (isOpen) {
+        chrome.sidePanel.close({ tabId: sender.tab.id });
         sidePanelState.set(sender.tab.id, false);
         sendResponse({ action: 'close' });
       } else {
