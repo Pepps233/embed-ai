@@ -10,6 +10,7 @@ import {
   removeHighlight,
 } from '../services/highlight-manager';
 import { DocumentType, ProcessingStatus } from '@shared/types';
+import { showOptInBanner } from './opt-in-banner';
 
 console.log('Embed AI loaded');
 
@@ -548,7 +549,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           await initialize();
           sendResponse({ success: true });
           break;
-          
+
+        case 'ACTIVATE_EMBED_AI':
+          if (!isInitialized) {
+            await initialize();
+          }
+          sendResponse({ success: true });
+          break;
+
         default:
           sendResponse({ error: 'Unknown message type' });
       }
@@ -561,9 +569,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true; // Keep channel open for async response
 });
 
-// Initialize when DOM is ready
+/**
+ * Prompt the user with an opt-in banner before activating
+ */
+async function promptOptIn() {
+  const accepted = await showOptInBanner({
+    subtitle: 'Web Page',
+    description: 'Activate Embed AI to highlight text, take notes, and ask questions on this page.',
+    acceptLabel: 'Activate',
+  });
+
+  if (accepted) {
+    await initialize();
+  }
+}
+
+// Prompt opt-in when DOM is ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initialize);
+  document.addEventListener('DOMContentLoaded', promptOptIn);
 } else {
-  initialize();
+  promptOptIn();
 }
