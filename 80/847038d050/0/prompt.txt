@@ -1,0 +1,57 @@
+Implement the following plan:
+
+# Fix PDF Detection for Non-.pdf URLs
+
+## Context
+
+PDFs served at URLs without a `.pdf` extension (e.g., `https://arxiv.org/pdf/2106.09685`) are not caught by the manifest's URL patterns (`*://*/*.pdf`). This means `pdf-detector.ts` never runs on these pages. Instead, `content-script.ts` runs and treats the page as a regular web page, which cannot interact with Chrome's opaque PDF embed element.
+
+This causes two bugs:
+1. **Side panel stops working** after clicking into the PDF content (events are trapped inside the embed)
+2. **Highlight/note buttons never appear** on text selection (mouseup handler can't observe selections inside the embed)
+
+## Solution
+
+Add **runtime PDF detection** to `content-script.ts` so it can catch PDFs that slipped past manifest URL matching, and redirect to the PDF viewer flow. Also fix the popup's PDF detection.
+
+## Changes
+
+### 1. Create `extension/src/content/pdf-utils.ts` (NEW)
+
+Extract `isPDFPage()` and `injectInlinePDFViewer()` from `pdf-detector.ts` into a shared module so both content scripts can use them without duplication.
+
+### 2. Modify `extension/src/content/content-script.ts`
+
+- Import `isPDFPage` and `injectInlinePDFViewer` from `./pdf-utils`
+- **Modify `promptOptIn()`**: Check `isPDFPage()` first. If PDF detected, show PDF-specific opt-in banner ("Open in Embed AI") and inject viewer on acceptance. Return early — don't initialize as web page.
+- **Add message handlers**: `CHECK_PDF` and `OPEN_PDF_IN_VIEWER` in the existing switch statement
+
+### 3. Modify `extension/src/content/pdf-detector.ts`
+
+- Remove local `isPDFPage()` and `injectInlinePDFViewer()` definitions
+- Import from `./pdf-utils` instead
+- All other logic (init, message listeners) stays the same
+
+### 4. Modify `extension/src/popup/App.tsx`
+
+- After the URL-based `.pdf` check, add fallback: send `CHECK_PDF` message to the content script
+- If response says `isPDF: true`, set `isPDF` state to show "Open PDF in Embed AI" button
+
+## Verification
+
+1. `cd extension && npm run build`
+2. Load unpacked in Chrome, navigate to `https://arxiv.org/pdf/2106.09685`
+3. Verify "PDF Detected" banner appears (not "Web Page")
+4. Click "Open in Embed AI" — verify PDF viewer loads
+5. Select text — verify highlight/note popup buttons appear
+6. Verify side panel works and stays connected after clicking into PDF
+7. Test regular `.pdf` URLs still work via `pdf-detector.ts`
+8. Test regular web pages still get the normal web page flow
+9. `npm run type-check && npm test`
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/jialeyu/.REDACTED.jsonl
+
+---
+
+commit all changes in git tree (files in versioned and unversioned) except for IMPLEMENTATION.txt. Read the previous commits for the commit message structure.
