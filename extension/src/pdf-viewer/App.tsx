@@ -276,38 +276,92 @@ export default function PDFViewerApp() {
     return () => observer.disconnect();
   }, [pdf, loading, renderPage]);
 
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isCmdOrCtrl = event.metaKey || event.ctrlKey;
+
+      // Cmd/Ctrl + Shift + K: Toggle side panel
+      if (isCmdOrCtrl && event.shiftKey && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        chrome.runtime.sendMessage({ type: 'TOGGLE_SIDE_PANEL' });
+      }
+
+      // Cmd/Ctrl + Shift + L: Create highlight (if text is selected)
+      if (isCmdOrCtrl && event.shiftKey && event.key.toLowerCase() === 'l') {
+        event.preventDefault();
+        if (documentId) {
+          const selection = window.getSelection();
+          if (selection && !selection.isCollapsed) {
+            createPDFHighlight(documentId, '#FFFF0080');
+          }
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [documentId]);
+
   // Handle text selection for highlighting
   useEffect(() => {
-    if (!documentId) return;
+    if (!documentId) {
+      console.log('PDF Viewer: Waiting for documentId before registering text selection handler');
+      return;
+    }
+
+    console.log('PDF Viewer: Registering text selection handler with documentId:', documentId);
 
     // Store document ID for highlight manager
     (window as any).__currentDocumentId = documentId;
     (window as any).__isPDFViewer = true;
 
     const handleMouseUp = async (e: MouseEvent) => {
+      console.log('PDF Viewer: mouseup event detected');
+
       // Don't show popup if clicking on our UI elements
       const target = e.target as Element;
       if (target.closest('#pdf-action-popup') || target.closest('#pdf-note-input')) {
+        console.log('PDF Viewer: Click on popup, ignoring');
         return;
       }
 
       const selection = window.getSelection();
-      if (!selection || selection.isCollapsed) return;
+      console.log('PDF Viewer: Selection:', selection);
+
+      if (!selection || selection.isCollapsed) {
+        console.log('PDF Viewer: No selection or collapsed');
+        return;
+      }
 
       const selectedText = selection.toString().trim();
-      if (!selectedText || selectedText.length < 3) return;
+      console.log('PDF Viewer: Selected text:', selectedText);
+
+      if (!selectedText || selectedText.length < 3) {
+        console.log('PDF Viewer: Text too short');
+        return;
+      }
 
       // Check if selection is within existing highlight
-      if (isSelectionWithinHighlight(selection)) return;
+      if (isSelectionWithinHighlight(selection)) {
+        console.log('PDF Viewer: Selection within existing highlight');
+        return;
+      }
 
+      console.log('PDF Viewer: Showing action popup');
       // Show action popup
       showActionPopup(selection, documentId);
     };
 
     document.addEventListener('mouseup', handleMouseUp);
+    console.log('PDF Viewer: Text selection handler registered');
 
     return () => {
       document.removeEventListener('mouseup', handleMouseUp);
+      console.log('PDF Viewer: Text selection handler unregistered');
     };
   }, [documentId]);
 
@@ -435,12 +489,18 @@ function isSelectionWithinHighlight(selection: Selection): boolean {
 }
 
 function showActionPopup(selection: Selection, documentId: string) {
+  console.log('showActionPopup called with documentId:', documentId);
+
   // Remove existing popup
   const existing = document.getElementById('pdf-action-popup');
-  if (existing) existing.remove();
+  if (existing) {
+    console.log('Removing existing popup');
+    existing.remove();
+  }
 
   const range = selection.getRangeAt(0).cloneRange();
   const rect = range.getBoundingClientRect();
+  console.log('Selection rect:', rect);
 
   const popup = document.createElement('div');
   popup.id = 'pdf-action-popup';
@@ -456,6 +516,7 @@ function showActionPopup(selection: Selection, documentId: string) {
     overflow: hidden;
     font-family: 'Source Sans 3', sans-serif;
   `;
+  console.log('Popup created with styles:', popup.style.cssText);
 
   // Highlight button
   const highlightBtn = document.createElement('button');
@@ -502,19 +563,26 @@ function showActionPopup(selection: Selection, documentId: string) {
   popup.appendChild(highlightBtn);
   popup.appendChild(noteBtn);
   document.body.appendChild(popup);
+  console.log('Popup appended to body, element:', popup);
+  console.log('Popup in DOM:', document.getElementById('pdf-action-popup'));
 
   // Close handlers
   const clickHandler = (e: MouseEvent) => {
     if (!popup.contains(e.target as Node)) {
+      console.log('Click outside popup, removing');
       removePopup();
     }
   };
 
   setTimeout(() => document.addEventListener('click', clickHandler), 100);
-  const timeoutId = setTimeout(() => removePopup(), 5000);
+  const timeoutId = setTimeout(() => {
+    console.log('Popup timeout, auto-removing');
+    removePopup();
+  }, 5000);
 
   function removePopup() {
     if (popup.parentNode) {
+      console.log('Removing popup');
       popup.remove();
       document.removeEventListener('click', clickHandler);
       clearTimeout(timeoutId);

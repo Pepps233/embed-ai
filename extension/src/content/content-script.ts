@@ -11,6 +11,7 @@ import {
 } from '../services/highlight-manager';
 import { DocumentType, ProcessingStatus } from '@shared/types';
 import { showOptInBanner } from './opt-in-banner';
+import { isPDFPage, injectInlinePDFViewer } from './pdf-utils';
 
 console.log('Embed AI loaded');
 
@@ -557,6 +558,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           sendResponse({ success: true });
           break;
 
+        case 'CHECK_PDF':
+          sendResponse({ isPDF: isPDFPage() });
+          break;
+
+        case 'OPEN_PDF_IN_VIEWER':
+          injectInlinePDFViewer();
+          sendResponse({ success: true });
+          break;
+
         default:
           sendResponse({ error: 'Unknown message type' });
       }
@@ -573,6 +583,23 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
  * Prompt the user with an opt-in banner before activating
  */
 async function promptOptIn() {
+  // Check if this is a PDF that slipped past manifest URL matching
+  // (e.g. URLs without .pdf extension like arxiv.org/pdf/...)
+  if (isPDFPage()) {
+    console.log('Embed AI: PDF detected (runtime), showing PDF opt-in banner');
+
+    const accepted = await showOptInBanner({
+      subtitle: 'PDF Detected',
+      description: 'Open this PDF in Embed AI to highlight text, take notes, and ask questions.',
+      acceptLabel: 'Open in Embed AI',
+    });
+
+    if (accepted) {
+      injectInlinePDFViewer();
+    }
+    return;
+  }
+
   const accepted = await showOptInBanner({
     subtitle: 'Web Page',
     description: 'Activate Embed AI to highlight text, take notes, and ask questions on this page.',

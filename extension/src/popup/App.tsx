@@ -15,6 +15,21 @@ function App() {
         const url = tab.url.toLowerCase();
         if (url.endsWith('.pdf') || url.includes('.pdf?')) {
           setIsPDF(true);
+          return;
+        }
+
+        // Fallback: ask the content script to check if the page is a PDF
+        // (catches PDFs served at URLs without .pdf extension)
+        if (tab.id) {
+          chrome.tabs.sendMessage(tab.id, { type: 'CHECK_PDF' }, (response) => {
+            if (chrome.runtime.lastError) {
+              // Content script not available — ignore
+              return;
+            }
+            if (response?.isPDF) {
+              setIsPDF(true);
+            }
+          });
         }
       }
     });
@@ -22,9 +37,13 @@ function App() {
 
   const openPDFViewer = () => {
     if (!currentUrl) return;
-    const viewerUrl = chrome.runtime.getURL('src/pdf-viewer/index.html');
-    const fullUrl = `${viewerUrl}?url=${encodeURIComponent(currentUrl)}`;
-    chrome.tabs.create({ url: fullUrl });
+    // Send message to the active tab's content script to inject inline viewer
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      if (tab?.id) {
+        chrome.tabs.sendMessage(tab.id, { type: 'OPEN_PDF_IN_VIEWER' });
+      }
+    });
   };
 
   return (
