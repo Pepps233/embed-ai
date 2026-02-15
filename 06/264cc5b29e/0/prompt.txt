@@ -1,0 +1,91 @@
+Implement the following plan:
+
+# Fix PDF Viewer: Replace Iframe+React with Inline Vanilla TS Viewer
+
+## Context
+
+The PDF viewer shows a blank page when "Open in Embed AI" is clicked. Two issues:
+
+1. **Blank page bug**: In `App.tsx`, `renderPage()` imperatively modifies page div contents (canvas, text layer), but React renders placeholder children in the same divs. When `setPageStates()` triggers a re-render, React's reconciliation overwrites the manually-added DOM elements with the JSX placeholder `<div class="page-placeholder">Loading page N...</div>`.
+
+2. **Iframe architecture**: The current approach clears the entire page and creates an iframe pointing to a separate React app (`pdf-viewer/index.html`). This adds unnecessary isolation layers and makes it feel like navigating away.
+
+**Goal**: Replace the iframe+React approach with a vanilla TS module that renders the PDF viewer directly in the page DOM from the content script context. This fixes the rendering bug, eliminates iframe issues, and provides the in-place experience.
+
+## Files to Create
+
+### 1. `extension/src/content/pdf-viewer-inline.ts` (NEW)
+Self-contained vanilla TS PDF viewer module. Handles:
+- Page structure (header with nav controls, scrollable container)
+- PDF loading via `pdf-service.ts` (reuse existing `loadPDF`, `extractAllPagesText`, `getPDFMetadata`, `getFilenameFromUrl`)
+- `TextLayer` from `pdfjs-dist` for text selection
+- Document creation/retrieval via `chrome.runtime.sendMessage` (same message types as App.tsx)
+- Lazy page rendering with `IntersectionObserver` using a `Set<number>` instead of React state
+- Text selection handling → highlight/note popups (port from App.tsx lines 468-854)
+- Highlight persistence and restoration
+- Keyboard shortcuts (Cmd+Shift+L for highlight, Cmd+Shift+K for side panel)
+- CSS injection via `chrome.runtime.getURL('src/pdf-viewer/pdf-viewer.css')` + fetch
+
+Export: `activateInlinePDFViewer(): Promise<void>`
+
+## Files to Modify
+
+### 2. `extension/src/content/pdf-detector.ts`
+- Import `activateInlinePDFViewer` from `./pdf-viewer-inline` (static import, since this script only runs on PDF pages)
+- Replace `injectInlinePDFViewer()` call with `activateInlinePDFViewer()`
+- Add check for `window.__embedAIPDFAccepted` flag to skip banner when injected programmatically
+- Update `OPEN_PDF_IN_VIEWER` message handler
+
+### 3. `extension/src/content/content-script.ts`
+- Remove import of `injectInlinePDFViewer` from `./pdf-utils`
+- For runtime PDF detection (`promptOptIn`): when user accepts, set `window.__embedAIPDFAccepted = true` and send `INJECT_PDF_VIEWER` message to background
+- Update `OPEN_PDF_IN_VIEWER` message handler similarly
+
+### 4. `extension/src/background/service-worker.ts`
+- Add handler for `INJECT_PDF_VIEWER` message
+- Use `chrome.scripting.executeScript({ target: { tabId }, files: ['src/content/pdf-detector.js'] })` to inject the pdf-detector content script
+
+### 5. `extension/src/content/pdf-utils.ts`
+- Remove `injectInlinePDFViewer()` function (moved to pdf-viewer-inline.ts)
+- Keep `isPDFPage()` as-is
+
+### 6. `extension/src/manifest.json`
+- Add `"scripting"` to permissions (needed for `chrome.scripting.executeScript`)
+
+## Files Unchanged
+- `extension/src/services/pdf-service.ts` — reused as-is (loadPDF, extractAllPagesText, etc.)
+- `extension/src/pdf-viewer/pdf-viewer.css` — reused as-is (loaded via fetch from web_accessible_resources)
+- `extension/src/pdf-viewer/App.tsx`, `main.tsx`, `index.html` — kept but unused (can be removed later)
+- `extension/vite.config.ts` — keep `additionalInputs` for now
+
+## Key Design Decisions
+
+1. **Vanilla TS, no React**: Avoids the reconciliation bug entirely. All DOM operations are imperative. Page rendering state tracked via `Set<number>` (ref-like, no re-render triggers).
+
+2. **Static import in pdf-detector, background injection for runtime PDFs**: The pdf-detector content script only runs on `.pdf` URLs, so bundling pdf.js into it is acceptable. For runtime-detected PDFs (content-script.ts), we avoid bloating the main bundle by using background `chrome.scripting.executeScript` to inject the pdf-detector script.
+
+3. **CSS loaded via fetch**: `chrome.runtime.getURL('src/pdf-viewer/pdf-viewer.css')` fetches the CSS from web_accessible_resources. This avoids duplicating the CSS and doesn't need special Vite import configuration.
+
+4. **Same message types**: Reuses all existing background message handlers (CREATE_DOCUMENT, GET_DOCUMENT_BY_SOURCE, CREATE_PAGE_TEXT, PERSIST_HIGHLIGHT, etc.).
+
+## Verification
+
+1. `cd extension && npm run build` — verify build succeeds
+2. Load extension in Chrome (`chrome://extensions/` → Load unpacked → `extension/dist`)
+3. Navigate to `https://arxiv.org/pdf/1706.03762` (runtime PDF detection via content-script.ts)
+   - Verify opt-in banner appears
+   - Click "Open in Embed AI"
+   - Verify PDF renders inline (no blank page)
+   - Verify text selection works → highlight/note popups appear
+   - Create a highlight → verify it persists (reload should restore it)
+   - Create a note → verify it persists
+4. Navigate to a `.pdf` URL (pdf-detector.ts path)
+   - Same verification steps
+5. `npm run type-check` — verify no TypeScript errors
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/jialeyu/.REDACTED.jsonl
+
+---
+
+commit the changes made using the commit message structure from the previous commits

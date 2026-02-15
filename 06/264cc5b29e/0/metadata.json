@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.4.3",
+  "checkpoint_id": "06264cc5b29e",
+  "session_id": "dfa49d3c-8b01-4614-b015-b5e3680ed52c",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-15T02:18:55.251784Z",
+  "branch": "feat/pdf-support",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "extension/src/background/service-worker.ts",
+    "extension/src/content/content-script.ts",
+    "extension/src/content/pdf-detector.ts",
+    "extension/src/content/pdf-utils.ts",
+    "extension/src/content/pdf-viewer-inline.ts",
+    "extension/src/manifest.json",
+    "fix_plan.md"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 55,
+    "cache_creation_tokens": 122832,
+    "cache_read_tokens": 1820585,
+    "output_tokens": 2383,
+    "api_call_count": 32
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-15T02:18:55.127065Z",
+    "agent_lines": 776,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 135,
+    "total_committed": 776,
+    "agent_percentage": 100
+  },
+  "transcript_path": ".claude/projects/-Users-jialeyu-WindSurfProjects-embed-ai/dfa49d3c-8b01-4614-b015-b5e3680ed52c.jsonl"
+}
