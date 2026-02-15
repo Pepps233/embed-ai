@@ -4,7 +4,8 @@
  */
 
 import { showOptInBanner } from './opt-in-banner';
-import { isPDFPage, injectInlinePDFViewer } from './pdf-utils';
+import { isPDFPage } from './pdf-utils';
+import { activateInlinePDFViewer } from './pdf-viewer-inline';
 
 console.log('Embed AI PDF detector loaded');
 
@@ -13,6 +14,12 @@ function init() {
   // Wait a bit for the page to fully load
   setTimeout(async () => {
     if (isPDFPage()) {
+      // If injected programmatically after user already accepted, skip banner
+      if ((window as any).__embedAIPDFAccepted) {
+        activateInlinePDFViewer();
+        return;
+      }
+
       console.log('Embed AI: PDF detected, showing opt-in banner');
 
       const accepted = await showOptInBanner({
@@ -22,7 +29,7 @@ function init() {
       });
 
       if (accepted) {
-        injectInlinePDFViewer();
+        activateInlinePDFViewer();
       }
     }
   }, 500);
@@ -43,7 +50,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'OPEN_PDF_IN_VIEWER') {
-    injectInlinePDFViewer();
+    activateInlinePDFViewer();
     sendResponse({ success: true });
     return true;
   }

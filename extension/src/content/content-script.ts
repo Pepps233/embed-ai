@@ -11,7 +11,7 @@ import {
 } from '../services/highlight-manager';
 import { DocumentType, ProcessingStatus } from '@shared/types';
 import { showOptInBanner } from './opt-in-banner';
-import { isPDFPage, injectInlinePDFViewer } from './pdf-utils';
+import { isPDFPage } from './pdf-utils';
 
 console.log('Embed AI loaded');
 
@@ -563,7 +563,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           break;
 
         case 'OPEN_PDF_IN_VIEWER':
-          injectInlinePDFViewer();
+          (window as any).__embedAIPDFAccepted = true;
+          chrome.runtime.sendMessage({ type: 'INJECT_PDF_VIEWER' });
           sendResponse({ success: true });
           break;
 
@@ -595,7 +596,8 @@ async function promptOptIn() {
     });
 
     if (accepted) {
-      injectInlinePDFViewer();
+      (window as any).__embedAIPDFAccepted = true;
+      chrome.runtime.sendMessage({ type: 'INJECT_PDF_VIEWER' });
     }
     return;
   }

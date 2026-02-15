@@ -159,6 +159,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   
+  // Inject PDF detector/viewer into a tab
+  if (message.type === 'INJECT_PDF_VIEWER') {
+    if (sender.tab?.id) {
+      chrome.scripting.executeScript({
+        target: { tabId: sender.tab.id },
+        files: ['src/content/pdf-detector.js'],
+      });
+    }
+    sendResponse({ received: true });
+    return true;
+  }
+
   // Pass through messages (for notifications between components)
   sendResponse({ received: true });
   return true;
